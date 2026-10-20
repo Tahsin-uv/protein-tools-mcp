@@ -9,8 +9,7 @@ confidence summaries, GROMACS trajectory metrics, live database lookups
 (UniProt, AlphaFold DB, RCSB) — plus a best-in-class metal-site module
 (metal geometry, force-field param checks, PDB-wide metal-site index).
 
-Built for real protein research (A8AB protein family, 150 ns GROMACS MD,
-manuscript in preparation); stdlib-only analysis core
+Built based on real protein research; stdlib-only analysis core
 (`pdb_utils.py`, `seq_utils.py`), so the only dependency is the `mcp` SDK.
 The metal-site module (geometry fitting, bidentate detection, PDB-wide
 index) is the differentiator — everything else is general protein/MD tooling
@@ -39,7 +38,7 @@ python test_server.py
 protein-tools-setup --dry-run   # preview client registration, writes nothing
 ```
 
-## Add to an MCP client (e.g. VS Code / Cline `.mcp.json`)
+## Add to an MCP client (e.g. Claude / VS Code / Cline `.mcp.json`)
 
 Easiest — auto-register (backs up configs first, `--dry-run` to preview):
 
