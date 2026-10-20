@@ -1,0 +1,31 @@
+MIT License
+
+Copyright (c) 2026 Tahsin Hassan Akash
+
+SCOPE NOTE — this license covers the FREE CORE of protein-tools only:
+  server.py, pdb_utils.py, cif_tools.py, xvg_tools.py, ff_tools.py,
+  propka_tools.py, run_registry.py, md_report.py, plot_tools.py,
+  premium_tools.py, and the test_*.py files shipped in this repository.
+
+Components deliberately NOT part of this repository (hosted relay service,
+the PDB-wide metal-site index corpus and database, and the index build
+pipeline) are proprietary, are not licensed here, and remain all rights
+reserved by the copyright holder.
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

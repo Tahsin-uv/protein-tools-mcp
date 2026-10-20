@@ -1,0 +1,12 @@
+# protein-tools — runtime requirements
+# The free core needs only the MCP SDK (stdlib-only analysis code).
+mcp<2
+
+# Optional: plotting tools (plot_xvg / compare_plot).
+# The server degrades gracefully with a structured error if this is absent
+# or blocked by OS policy.
+matplotlib>=3.7
+
+# Relay / index builder only (NOT shipped in the public repo):
+# fastapi
+# modal

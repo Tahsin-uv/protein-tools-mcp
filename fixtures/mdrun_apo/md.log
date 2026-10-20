@@ -1,0 +1,5 @@
+GROMACS synthetic md.log fixture
+step 0
+step 2500000
+step 4999900
+Finished mdrun on rank 0

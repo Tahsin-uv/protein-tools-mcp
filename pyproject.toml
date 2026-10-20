@@ -1,0 +1,76 @@
+# protein-tools — MCP server for general protein characterization
+# (+ best-in-class metal-site module).
+#
+# Install (users):
+#   pip install protein-tools-mcp            # base: stdlib-only analysis core
+#   pip install "protein-tools-mcp[plots]"   # + matplotlib for plot_xvg / compare_plot
+#   uvx protein-tools-mcp                    # zero-install: ephemeral env
+#
+# Run as an MCP server (stdio):
+#   protein-tools                            # console entry point (see server:main)
+#
+# Notes:
+# - `mcp<2` is a load-bearing pin: mcp>=2 renamed FastMCP to MCPServer.
+#   Do not lift until server.py is migrated.
+# - matplotlib stays OPTIONAL (extra `plots`): plot_tools.py lazy-loads it
+#   and degrades with a structured error when absent.
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "protein-tools-mcp"
+version = "0.1.0"
+description = "MCP server for general protein characterization (+ metal-site module)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Tahsin Hassan Akash" }]
+keywords = ["mcp", "protein", "pdb", "mmcif", "metal-sites", "gromacs", "bioinformatics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+dependencies = [
+    "mcp<2",
+]
+
+[project.optional-dependencies]
+plots = ["matplotlib>=3.7"]
+lab = ["streamlit>=1.30"]
+
+[project.urls]
+Homepage = "https://github.com/tahsinhassan18/protein-tools-mcp"
+Issues = "https://github.com/tahsinhassan18/protein-tools-mcp/issues"
+
+[project.scripts]
+protein-tools = "server:main"
+protein-tools-setup = "setup_client:main"
+protein-lab = "lab_app:main"
+
+[tool.setuptools]
+# Flat layout: the free-core modules live next to this file.
+py-modules = [
+    "server",
+    "setup_client",
+    "app_paths",
+    "pdb_utils",
+    "cif_tools",
+    "xvg_tools",
+    "ff_tools",
+    "propka_tools",
+    "run_registry",
+    "md_report",
+    "plot_tools",
+    "premium_tools",
+    "seq_utils",
+    "lab_app",
+    "lab_seq",
+    "lab_structure",
+]
