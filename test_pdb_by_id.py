@@ -1,9 +1,10 @@
 """Unit tests for pdb_by_id tool concept (local PDB file lookup + RCSB metadata)."""
-import sys, pathlib, os, tempfile, shutil
+import sys, pathlib, os, tempfile, shutil, json
 
 FIX = pathlib.Path(__file__).resolve().parent / "fixtures"
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import pdb_utils
+import server
 
 all_ok = True
 
@@ -139,19 +140,20 @@ else:
 valid_ids = ["1ABC", "1abc", "ABCD", "A8AB", "12AB"]
 for pid in valid_ids:
     pid_upper = pid.strip().upper()
-    ok = check(f"pdb_by_id valid ID {pid}", len(pid_upper) == 4 and pid_upper.isalnum(),
-               f"got {pid_upper}")
+    # Call the actual tool (no API key -> RCSB gracefully degrades, but
+    # validation must accept digit-leading IDs like 1ABC / 4HHB)
+    result = json.loads(server.pdb_by_id(pid))
+    ok = check(f"pdb_by_id valid ID {pid}",
+               result["pdb_id"] == pid_upper and not result["local"]["present"],
+               f"got {result}")
     all_ok = all_ok and ok
 
 invalid_ids = ["ABCDE", "1ABC1", "AB C", ""]
 for pid in invalid_ids:
-    pid_upper = pid.strip().upper()
-    try:
-        if len(pid_upper) != 4 or not pid_upper.isalnum():
-            raise ValueError(f"pdb_id must be a 4-character alphanumeric ID, got '{pid}'")
-        ok = check(f"pdb_by_id invalid ID {pid} rejected", False, "should have raised")
-    except ValueError:
-        ok = check(f"pdb_by_id invalid ID {repr(pid)} rejected", True)
+    result = json.loads(server.pdb_by_id(pid))
+    ok = check(f"pdb_by_id invalid ID {repr(pid)} rejected",
+               "error" in result,
+               f"got {result}")
     all_ok = all_ok and ok
 
 # --- 4. Test RCSB URL construction ---

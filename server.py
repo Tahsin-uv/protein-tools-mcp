@@ -651,10 +651,10 @@ def pdb_by_id(pdb_id: str, refresh: bool = False) -> str:
     """
     try:
         pdb_id = pdb_id.strip().upper()
-        if len(pdb_id) != 4 or not pdb_id.isalpha():
-            raise ValueError(f"pdb_id must be a 4-letter alphabetic ID, got '{pdb_id}'")
+        if len(pdb_id) != 4 or not pdb_id.isalnum():
+            raise ValueError(f"pdb_id must be a 4-character alphanumeric ID, got '{pdb_id}'")
 
-        base_dir = Path(__file__).resolve().parent
+        base_dir = Path.cwd()
         local_info: dict = {"local_file": None, "present": False}
         for ext in [".pdb", ".cif"]:
             candidate = base_dir / f"{pdb_id}{ext}"
