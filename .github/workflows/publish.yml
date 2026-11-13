@@ -1,4 +1,4 @@
-name: Publish protein-tools-mcp to TestPyPI / PyPI
+name: Publish protein-tools-mcp to PyPI
 
 on:
   release:
@@ -6,9 +6,9 @@ on:
 
 jobs:
   build-and-publish:
-    name: Build and publish to TestPyPI
+    name: Build and publish to PyPI
     runs-on: ubuntu-latest
-    environment: testpypi
+    environment: pypi
     permissions:
       contents: read
       id-token: write   # required for Trusted Publisher OIDC
@@ -27,16 +27,7 @@ jobs:
       - name: Build wheel and sdist
         run: python -m build --sdist --wheel --outdir dist/ .
 
-      - name: Publish to TestPyPI
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: https://test.pypi.org/legacy/
           skip-existing: true
-
-      # ------------------------------------------------------------------
-      # Uncomment the block below for the real PyPI release. You'll also
-      # need a second pending publisher registered on PyPI (same name,
-      # workflow, environment name "pypi").
-      # ------------------------------------------------------------------
-      # - name: Publish to PyPI
-      #   uses: pypa/gh-action-pypi-publish@release/v1
