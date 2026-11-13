@@ -27,7 +27,7 @@ jobs:
       - name: Build wheel and sdist
         run: python -m build --sdist --wheel --outdir dist/ .
 
-      - name: Publish to TestPyPI
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
