@@ -1,0 +1,35 @@
+# --- runtime state / caches (never commit) ---
+data/cache/
+data/runs.db
+data/index/
+data/pdb_subset/
+*.log
+
+# --- python ---
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# --- secrets / local config ---
+.env
+*.key
+*_key.txt
+.vscode/
+.idea/
+*.code-workspace
+
+# --- scratch / verification leftovers ---
+random_test.pdb
+random_*.pdb
+random_test.id
+zz_*
+*.bak
+sync_reports_check/
+
+# --- packaging ---
+dist/
+build/
+*.egg-info/

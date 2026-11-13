@@ -1,0 +1,23 @@
+include README.md
+include LICENSE
+include THIRD_PARTY_NOTICES.md
+include SKILL.md
+include MANIFEST.in
+include requirements.txt
+include spaces-requirements.txt
+
+# Protein Lab UI + entry points (flat top-level modules).
+include app.py
+include protein_lab.py
+include gen_fixtures.py
+
+# Test suite ships with the sdist so users can verify the install.
+include test_*.py
+
+# Demo fixtures for the Protein Lab and the self-test suite.
+recursive-include fixtures *
+include fixtures/__init__.py
+include fixtures/mdrun_apo/__init__.py
+
+global-exclude __pycache__/*
+global-exclude *.py[cod]
