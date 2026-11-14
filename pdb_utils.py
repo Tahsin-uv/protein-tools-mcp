@@ -220,14 +220,17 @@ def _ideal_geometries(cn: int) -> dict[str, list[float]]:
     if cn == 7:
         # pentagonal bipyramid: 5 eq pairs at 72, 5 at 144, 10 ax-eq at 90,
         # 1 ax-ax at 180  (C(7,2) = 21 pairs)
-        return {"pentagonal_bipyramidal": [90.0] * 10 + [72.0] * 5
+        # NOTE: list must be sorted ascending; observed angles are sorted too
+        return {"pentagonal_bipyramidal": [72.0] * 5 + [90.0] * 10
                 + [144.0] * 5 + [180.0]}
     if cn == 8:
         # cubic: 12 edges at 70.53, 12 face diagonals at 109.47, 4 at 180;
-        # hexagonal bipyramid: 6 eq pairs 60/120/180-adjacent + ax pairs
+        # hexagonal bipyramid: 6 eq at 60, 12 ax-eq at 90, 6 eq at 120,
+        # 3 eq-opp at 180 + 1 ax-ax at 180  (C(8,2) = 28 pairs)
+        # NOTE: list must be sorted ascending; observed angles are sorted too
         return {"cubic": [70.53] * 12 + [109.47] * 12 + [180.0] * 4,
-                "hexagonal_bipyramidal": [60.0] * 6 + [120.0] * 6
-                + [180.0] * 3 + [90.0] * 12 + [180.0]}
+                "hexagonal_bipyramidal": [60.0] * 6 + [90.0] * 12
+                + [120.0] * 6 + [180.0] * 4}
     return {}
 
 
