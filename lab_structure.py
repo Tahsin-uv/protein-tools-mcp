@@ -176,8 +176,8 @@ def render() -> None:
     st.subheader("Metal ions (helper atoms)")
     metals = _find_metals(struct)
     if not metals:
-        st.write("No metal ions found — most student structures have none, "
-                 "which is completely normal.")
+        st.write("No metal ions found — many PDB entries do not contain metal ions, "
+                 "which is common.")
     else:
         for el in metals:
             word = _METAL_WORDS.get(el, el.lower())
@@ -187,9 +187,9 @@ def render() -> None:
                 for site in g.get("metal_sites", []):
                     _render_site(site, word)
     with st.expander("What does this mean?"):
-        st.write("Some proteins hold small charged metal atoms (iron, "
-                 "zinc, ...) that help them work — like a wrench held "
-                 "in a hand. The 'grip' is the set of nearby protein "
+        st.write("Metal-binding sites are coordinated by nearby protein atoms "
+                 "zinc, ...) that help them work — with characteristic coordination geometry "
+                 "in a protein context. The 'grip' is the set of nearby protein "
                  "atoms touching the metal. A neat, symmetric grip "
                  "(e.g. a pyramid of 4) usually means a real binding "
                  "site; a loose or lopsided one deserves a second look "
