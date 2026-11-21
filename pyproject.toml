@@ -1,5 +1,5 @@
 # protein-tools — MCP server for general protein characterization
-# (+ best-in-class metal-site module).
+# (+ dedicated metal-site module).
 #
 # Install (users):
 #   pip install protein-tools-mcp            # base: stdlib-only analysis core
@@ -46,8 +46,8 @@ plots = ["matplotlib>=3.7"]
 lab = ["streamlit>=1.30"]
 
 [project.urls]
-Homepage = "https://github.com/tahsinhassan18/protein-tools-mcp"
-Issues = "https://github.com/tahsinhassan18/protein-tools-mcp/issues"
+Homepage = "https://github.com/Tahsin-uv/protein-tools-mcp"
+Issues = "https://github.com/Tahsin-uv/protein-tools-mcp/issues"
 
 [project.scripts]
 protein-tools = "server:main"

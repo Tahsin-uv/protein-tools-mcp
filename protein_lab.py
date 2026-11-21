@@ -41,6 +41,6 @@ with tab_struct:
 
 st.divider()
 st.caption("Protein Lab — the web UI for "
-           "[protein-tools](https://github.com/tahsinhassan18/protein-tools-mcp). "
+           "[protein-tools](https://github.com/Tahsin-uv/protein-tools-mcp). "
            "Analysis by the free core; figures use your data only — "
            "nothing is uploaded anywhere.")

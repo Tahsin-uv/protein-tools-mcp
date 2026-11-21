@@ -1,5 +1,5 @@
 # Listing kit — protein-tools MCP server (general protein characterization
-# + best-in-class metal-site module)
+# + dedicated metal-site module)
 
 Everything needed to submit the server to MCP directories and to talk
 about it. Update the "proof" numbers before submitting.

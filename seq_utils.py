@@ -308,6 +308,12 @@ AA_MASS: dict[str, float] = {
 }
 _WATER_MASS = 18.01528
 
+# Extinction coefficient coefficients at 280 nm (Pace et al., 1995).
+# Molar extinction coefficients (M^-1 cm^-1) at 280 nm in water.
+_EXTINCTION_TRYPTOPHAN = 5500   # per Trp residue
+_EXTINCTION_TYROSINE = 1490     # per Tyr residue
+_EXTINCTION_CYSTINE = 125       # per disulfide-bonded Cys pair (cystine)
+
 # Kyte-Doolittle hydrophobicity scale.
 GRAVY_SCALE: dict[str, float] = {
     "I": 4.5, "V": 4.2, "L": 3.8, "F": 2.8, "C": 2.5, "M": 1.9,
@@ -398,6 +404,46 @@ def _estimate_pi(counts: dict[str, int]) -> float:
         else:
             hi = mid
     return round((lo + hi) / 2, 2)
+
+
+def extinction_coefficient(seq: str) -> dict:
+    """Extinction coefficient at 280 nm (Pace et al., 1995).
+
+    Assumes reduced cysteines (no disulfide bonds) unless ``n_disulfides``
+    is provided. Returns molar extinction coefficient (M^-1 cm^-1) and the
+    absorbance of a 0.1% (1 mg/mL) solution.
+
+    Raises ValueError for non-protein input.
+    """
+    s = normalize_sequence(seq)
+    if not s:
+        raise ValueError("Empty sequence: nothing to analyze.")
+    label, detail = classify_sequence_type(s)
+    if label != "protein":
+        raise ValueError(
+            f"Not a protein sequence (detected: {label}; {detail.note})")
+    counts: dict[str, int] = {}
+    for ch in s:
+        counts[ch] = counts.get(ch, 0) + 1
+    n_trp = counts.get("W", 0)
+    n_tyr = counts.get("Y", 0)
+    n_cys = counts.get("C", 0)
+    # Assume reduced form: no cystine contribution.
+    eps = n_trp * _EXTINCTION_TRYPTOPHAN + n_tyr * _EXTINCTION_TYROSINE
+    # Molecular weight for 0.1% (1 mg/mL) conversion.
+    standard = [ch for ch in s if ch in AA_MASS]
+    mw = sum(AA_MASS[ch] for ch in standard) + _WATER_MASS
+    eps_01pct = eps / mw if mw else 0.0
+    return {
+        "n_trp": n_trp,
+        "n_tyr": n_tyr,
+        "n_cys": n_cys,
+        "extinction_coefficient_m1cm1": round(eps, 1),
+        "absorbance_0_1_percent": round(eps_01pct, 3),
+        "note": ("Assumes reduced cysteines (no disulfide bonds). "
+                 "Add n_disulfides × 125 M^-1 cm^-1 per cystine pair "
+                 "if disulfide bonds are present."),
+    }
 
 
 # ---------------------------------------------------------------------------

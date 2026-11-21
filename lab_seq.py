@@ -46,19 +46,24 @@ def render() -> None:
 
     if "_lab_seq" not in st.session_state:
         st.session_state["_lab_seq"] = ""
-    src = st.text_area("Sequence or FASTA", height=120,
-                       placeholder=">my_protein\nMKLIVFWYHEPQDNRSACDE",
-                       key="_lab_seq")
+
+    # Handle actions that modify session state BEFORE creating the widget,
+    # so the widget picks up the new value on rerun.
+    demo_clicked = st.button("Try demo data instead")
+    if demo_clicked:
+        st.session_state["_lab_seq"] = _demo_text()
+
     up = st.file_uploader("...or upload a .fasta file",
                           type=["fasta", "fa", "txt"])
     if up is not None:
-        src = up.read().decode("utf-8", errors="replace")
-        st.session_state["_lab_seq"] = src
-    if st.button("Try demo data instead"):
-        st.session_state["_lab_seq"] = _demo_text()
-        st.rerun()
+        st.session_state["_lab_seq"] = up.read().decode("utf-8", errors="replace")
+
+    src = st.text_area("Sequence or FASTA", height=120,
+                       placeholder=">my_protein\nMKLIVFWYHEPQDNRSACDE",
+                       key="_lab_seq")
+
     src = st.session_state.get("_lab_seq", "")
-    if not (src or "").strip():
+    if not src.strip():
         st.info("Paste a sequence, upload a file, or try the demo data.")
         return
 
@@ -103,7 +108,7 @@ def _render_record(rec_id: str, seq: str, label: str) -> None:
         st.warning(str(exc))
         return
     c1, c2, c3 = st.columns(3)
-    c1.metric("Length", f"{c['length']} amino acids")
+    c1.metric("Length", f"{c['length']} aa")
     c2.metric("Weight", f"{c['molecular_weight_da']:,.0f} Da")
     ch = c.get("charge_at_pH7_estimate")
     c3.metric("Charge at pH 7", f"{ch:+.1f}" if ch is not None else "-")
@@ -115,6 +120,19 @@ def _render_record(rec_id: str, seq: str, label: str) -> None:
     pi = c.get("pi_estimate")
     g2.metric("pI (zero-charge acidity)", f"{pi:.2f}" if pi else "-",
               help=_GLOSSARY["pI"])
+
+    # Extinction coefficient (Pace et al., 1995)
+    try:
+        ec = seq_utils.extinction_coefficient(seq)
+        e1, e2 = st.columns(2)
+        e1.metric("ε₂₈₀ (M⁻¹ cm⁻¹)", f"{ec['extinction_coefficient_m1cm1']:,.0f}",
+                  help="Molar extinction coefficient at 280 nm")
+        e2.metric("A₂₈₀ @ 0.1% (1 mg/mL)", f"{ec['absorbance_0_1_percent']:.2f}",
+                  help="Absorbance of 1 mg/mL solution in 1 cm cell")
+        st.caption(f"  Trp: {ec['n_trp']} | Tyr: {ec['n_tyr']} | "
+                   f"Cys (reduced): {ec['n_cys']} — {ec['note']}")
+    except ValueError as exc:
+        st.caption(f"Extinction coefficient: skipped ({exc})")
     st.write("**Building blocks in your protein:**")
     st.bar_chart(c["counts"])
     with st.expander("What does this mean?"):

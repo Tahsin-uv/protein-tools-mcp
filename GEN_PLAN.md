@@ -2,7 +2,7 @@
 
 Status: Plan 1 (rewording) is DONE — README.md, LISTING.md, and server.py
 docstring now position the server as "general protein characterization
-(+ best-in-class metal-site module)". This file plans the Part 2 work:
+(+ dedicated metal-site module)". This file plans the Part 2 work:
 five new general tools that make the server general-complete.
 
 ## Design principles (binding)

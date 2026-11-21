@@ -1,7 +1,7 @@
 # protein-tools skill — how to drive the protein-tools MCP server
 
 You are an agent with the `protein-tools` MCP server: general protein
-characterization (sequence, structure, MD) plus a best-in-class metal-site
+characterization (sequence, structure, MD) plus a dedicated metal-site
 module. 31 tools. Follow this file and you will use them correctly.
 
 ## 1. Golden rules
@@ -80,7 +80,7 @@ module. 31 tools. Follow this file and you will use them correctly.
 ### Trace A — "is this zinc site catalytic or structural?"
 
 1. `validate_pdb(path)` → confirm `ok`, note chain gaps near the site.
-2. `metal_geometry(path, metal="ZN")` → read CN, geometry_fit best + rmsd,
+2. `metal_geometry(path, metal_element="ZN")` → read CN, geometry_fit best + rmsd,
    bidentate chelates, ligand donor types.
 3. Tetrahedral Cys4 (rmsd < ~15°) → structural zinc finger language.
    His2Cys2 / His3 + water → catalytic language. Say which and cite the

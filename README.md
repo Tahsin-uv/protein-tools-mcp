@@ -1,12 +1,12 @@
 # protein-tools — MCP server for general protein characterization
-# (+ best-in-class metal-site module)
+# (+ dedicated metal-site module)
 
 A Model Context Protocol (MCP) server that gives any MCP-capable AI client
 (Cline, Claude Desktop, VS Code, etc.) general protein-characterization tools:
 sequence analysis (protein/DNA/RNA typing, FASTA parsing, PDB lookup),
 PDB/mmCIF validation, sequence extraction, pLDDT
 confidence summaries, GROMACS trajectory metrics, live database lookups
-(UniProt, AlphaFold DB, RCSB) — plus a best-in-class metal-site module
+(UniProt, AlphaFold DB, RCSB) — plus a dedicated metal-site module
 (metal geometry, force-field param checks, PDB-wide metal-site index).
 
 Built for real protein research (A8AB protein family, 150 ns GROMACS MD,
@@ -213,61 +213,6 @@ How to get access (Phase A — manual):
 The counts quoted above (38,143 metal-containing entries / 1,097,659 sites) are
 from the author's internal index build and are marked **[Unverified]** — they have
 not been independently audited.
-
-## Hosted relay (production mode)
-
-Two environment variables switch the server into production mode:
-
-```json
-"env": {
-  "PROTEIN_TOOLS_API_KEY": "pt_live_...",
-  "PROTEIN_TOOLS_RELAY_URL": "https://<workspace>--relay.modal.run"
-}
-```
-
-- Without `PROTEIN_TOOLS_RELAY_URL`: local mode — all free tools plus
-  direct upstream lookups. The PDB-wide metal-site index
-  (`query_metal_sites`, `index_stats`) is premium-only and served by the
-  relay; there is no downloadable local index DB.
-- With it: `uniprot_entry`, `alphafold_plddt`, `rcsb_entry`,
-  `query_metal_sites`, and `index_stats` are served by the relay, which
-  validates keys (SHA-256-hashed), enforces monthly quotas per tier
-  (beta 1,000 / pro 10,000 / lab 50,000 calls) plus a 60 req/min rate
-  limit, meters every call (`GET /v1/usage`), and caches upstream
-  responses for 24 h server-side.
-
-Relay administration (Phase A: manual keys):
-
-```powershell
-modal deploy relay.py
-modal run relay.py --stage issue --name beta1 --tier beta   # prints key once
-modal run relay.py --stage list
-modal run relay.py --stage revoke --key pt_live_...
-```
-
-Tests: `test_relay_unit.py` (offline: key lifecycle, quota reset, tiers,
-summarizers) and `test_relay_live.py` (needs deployed relay + real key:
-health, 401/403 auth paths, hosted index query, metering, upstream lookup).
-
-## Monetization notes (how this becomes a product)
-
-The skill file itself is trivially copyable, so the revenue lives behind it:
-
-1. **Free tier** = the local tools above. This is the marketing — it gets the
-   server listed and starred on MCP directories (mcp.so, PulseMCP, Smithery,
-   MCP Market — listing is free everywhere).
-2. **Premium tier** = the relay (Phase A is BUILT and deployed - see the
-   "Hosted relay" section above). Today keys are issued manually; Phase B
-   wires automatic issuance:
-   - A payment webhook (Lemon Squeezy, a merchant-of-record that onboards
-     Bangladesh; or x402 pay-per-call in USDC) calls `/v1/keys/issue`.
-   - Value-adds that justify paying: the hosted 1.1 M-site metal index,
-     shared upstream caching, quotas, bulk queries.
-3. **Directories take no cut** - billing is your own payment account.
-4. Differentiation: a general protein server where the metal module happens
-   to be the best available (geometry fitting, bidentate detection, and a
-   PDB-wide 1.1 M-site index most generic servers don't have). General tools
-   get the server listed and starred; metal depth is what justifies paying.
 
 ## Disclaimer
 

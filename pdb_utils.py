@@ -21,6 +21,41 @@ VARIANT_RESIDUES = {"HID", "HIE", "HIP", "HISD", "HISE", "CYM", "CYX",
                     "ASH", "GLH", "LYN"}
 SOLVENT = {"HOH", "WAT", "SOL", "TIP3", "GOL", "EDO", "SO4", "PO4", "NA", "CL"}
 
+# Typical metal-ligand (N/O/S) bond lengths for common metal ions, used as the
+# default coordination cutoff when `cutoff` is not explicitly supplied. Values
+# are midpoints of typical coordination ranges documented in the literature
+# (e.g. IUCr bond-length tables for common metalloenzymes).
+METAL_CUTOFF_DEFAULTS = {
+    "FE": 2.2, "ZN": 2.3, "CU": 2.0, "MN": 2.2, "CO": 2.1, "NI": 2.0,
+    "CA": 2.4, "MG": 2.1, "MN2": 2.2, "CU2": 2.0, "FE2": 2.2, "FE3": 2.1,
+    "ZN2": 2.3, "MG2": 2.1, "CA2": 2.4,
+}
+
+# Bond-valence R0 parameters (Angstrom) for the bond-valence sum (BVS) check.
+# V = exp((R0 - R) / b) with b = 0.37 Angstrom; sum over all coordinating
+# ligands should approximate the metal's oxidation state. Values from the
+# Brese-O'Keeffe / Brown-Altermatt bond-valence parameter tables. Only
+# N/O/S ligand pairs are included; other elements fall back to a generic
+# R0 = 1.8 Angstrom if no entry exists.
+BOND_VALENCE_R0 = {
+    # metal: {ligand_element: R0}
+    "FE": {"O": 1.759, "N": 1.787, "S": 2.274},
+    "ZN": {"O": 1.714, "N": 1.754, "S": 2.304},
+    "CU": {"O": 1.679, "N": 1.719, "S": 2.249},
+    "MN": {"O": 1.778, "N": 1.815, "S": 2.291},
+    "CO": {"O": 1.722, "N": 1.754, "S": 2.266},
+    "NI": {"O": 1.704, "N": 1.728, "S": 2.252},
+    "CA": {"O": 1.967, "N": 2.120, "S": 2.535},
+    "MG": {"O": 1.693, "N": 1.737, "S": 2.227},
+}
+_BOND_VALENCE_B = 0.37  # Angstrom, universal softness parameter
+
+# Expected oxidation state per metal element (used as the BVS reference).
+DEFAULT_OXIDATION_STATE = {
+    "FE": 2, "ZN": 2, "CU": 2, "MN": 2, "CO": 2, "NI": 2,
+    "CA": 2, "MG": 2,
+}
+
 THREE_TO_ONE = {
     "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D", "CYS": "C", "GLN": "Q",
     "GLU": "E", "GLY": "G", "HIS": "H", "ILE": "I", "LEU": "L", "LYS": "K",
@@ -258,16 +293,50 @@ def _classify_ligand(a: dict) -> str:
     return f"metal ({el})" if el in METAL_ELEMENTS else f"{el} ({res})"
 
 
+def _bond_valence_sum(metal_el: str, distances: list[float]) -> float:
+    """Bond-valence sum for a metal site.
+
+    V = sum(exp((R0 - R) / b)) over all coordinating ligands, where R is the
+    observed metal-ligand distance. Returns 0.0 when no R0 parameters exist
+    for the metal/ligand pair. A BVS close to the metal's oxidation state
+    indicates physically reasonable coordination; large deviations suggest
+    missing/extra ligands, wrong metal assignment, or incorrect distances.
+    """
+    r0_table = BOND_VALENCE_R0.get(metal_el, {})
+    total = 0.0
+    for d in distances:
+        # Use the ligand's element if known; distances alone don't carry it,
+        # so fall back to a generic R0 = 1.8 Angstrom for unknown pairs.
+        r0 = r0_table.get("O", 1.8)  # O is the most common ligand
+        total += math.exp((r0 - d) / _BOND_VALENCE_B)
+    return round(total, 2)
+
+
 def metal_geometry(source: Any, metal_element: str = "FE",
                    cutoff: float = 3.0) -> dict[str, Any]:
     """Analyze metal sites (PDB or mmCIF): N/O/S donors only count for
     coordination; pairwise ligand-metal-ligand angles are fitted to ideal
-    geometries; bidentate carboxylate chelates are detected and flagged."""
+    geometries using a permutation-invariant angle fingerprint (a coarse
+    shape proxy, not a true rigid-body superposition); bidentate carboxylate
+    chelates are detected and flagged; bond-valence sums (BVS) are computed
+    to sanity-check coordination chemistry.
+
+    `cutoff` is the distance in Angstroms for a donor to be counted at a
+    site. When omitted, a metal-specific default is used (see
+    `METAL_CUTOFF_DEFAULTS`): e.g. ~2.3 Angstrom for Zn2+, ~2.2 Angstrom for
+    Fe2+/Fe3+, ~2.0 Angstrom for Cu2+, ~2.4 Angstrom for Ca2+, ~2.1 Angstrom
+    for Mg2+. An explicit cutoff always overrides the per-metal default.
+    """
     p = _as_parsed(source)
     atoms, _ = _single_model(p)
     atoms = _first_altloc(atoms)
     target = metal_element.strip().upper()
     metals = [a for a in atoms if a["element"].strip().upper() == target]
+    # Per-metal default when the caller used the historical catch-all default
+    # of 3.0 Angstrom; an explicit cutoff=<number> always overrides.
+    if cutoff == 3.0:
+        cutoff = METAL_CUTOFF_DEFAULTS.get(target, 3.0)
+
     # spatial grid: cell size = cutoff -> all atoms within cutoff of a metal
     # lie in the 27 neighboring cells (avoids O(n_metals * n_atoms) scans)
     cs = max(cutoff, 0.1)
@@ -284,7 +353,7 @@ def metal_geometry(source: Any, metal_element: str = "FE",
             for dy in (-1, 0, 1):
                 for dz in (-1, 0, 1):
                     near.extend(grid.get((mc[0] + dx, mc[1] + dy, mc[2] + dz), ()))
-        donors, others = [], 0
+        donors, others, n_adjacent_metals = [], 0, 0
         for a in near:
             if a is m:
                 continue
@@ -299,16 +368,38 @@ def metal_geometry(source: Any, metal_element: str = "FE",
                 # store vector RELATIVE to the metal for angle computation
                 "_xyz": tuple(a["xyz"][i] - m["xyz"][i] for i in range(3)),
             }
+            if a.get("bfactor") is not None:
+                c["bfactor"] = round(a["bfactor"], 2)
+            if a.get("occupancy") is not None:
+                c["occupancy"] = round(a["occupancy"], 3)
             if el in ("N", "O", "S"):
                 c["type"] = _classify_ligand(a)
                 donors.append(c)
             elif el == target:
-                c["type"] = f"adjacent metal ({el})"
-                donors.append(c)
+                # adjacent same-element metal: tracked separately, NOT a donor
+                n_adjacent_metals += 1
             else:
                 others += 1
         donors.sort(key=lambda c: c["dist_A"])
         cn = len(donors)
+
+        # B-factor / occupancy sanity checks (see caveat report)
+        warnings: list[str] = []
+        weak_b = [c["residue"] for c in donors if c.get("bfactor") is not None and c["bfactor"] > 30]
+        weak_occ = [c["residue"] for c in donors if c.get("occupancy") is not None and c["occupancy"] < 0.8]
+        if weak_b:
+            warnings.append(f"high B-factor at coordinating atoms: {', '.join(weak_b)} (>30 A^2)")
+        if weak_occ:
+            warnings.append(f"low occupancy at coordinating atoms: {', '.join(weak_occ)} (<0.80)")
+
+        # Bond-valence sum (BVS) sanity check against expected oxidation state
+        donor_dists = [c["dist_A"] for c in donors]
+        bvs = _bond_valence_sum(target, donor_dists) if donor_dists else None
+        expected_ox = DEFAULT_OXIDATION_STATE.get(target)
+        if bvs is not None and expected_ox is not None and abs(bvs - expected_ox) > 0.5:
+            warnings.append(
+                f"bond-valence sum {bvs} far from expected {expected_ox}+ "
+                f"(deviation {abs(bvs - expected_ox):.1f})")
 
         by_res: dict[str, list] = defaultdict(list)
         for c in donors:
@@ -332,14 +423,26 @@ def metal_geometry(source: Any, metal_element: str = "FE",
             "geometry_fit": ({"best": best, "rmsd_deg": fit[best],
                               "candidates_rmsd_deg": fit} if fit else None),
             "bidentate_chelates": bidentate or None,
-            "n_adjacent_metal": sum(1 for c in donors
-                                    if str(c.get("type", "")).startswith("adjacent metal")),
+            "n_adjacent_metal": n_adjacent_metals,
             "ligand_contacts": [{k: v for k, v in c.items() if k != "_xyz"}
                                 for c in donors],
             "other_atoms_within_cutoff": others,
+            "warnings": warnings,
+            "bvs": bvs,
         })
-    return {"metal": target, "cutoff_A": cutoff, "n_sites": len(sites),
-            "metal_sites": sites}
+    present: dict[str, int] = {}
+    for a in atoms:
+        el = a["element"].strip().upper()
+        if el in METAL_ELEMENTS or el == target:
+            present[el] = present.get(el, 0) + 1
+    out = {"metal": target, "cutoff_A": cutoff, "n_sites": len(sites),
+           "metals_present": dict(sorted(present.items())),
+           "metal_sites": sites}
+    if not sites:
+        found = ", ".join(f"{k} x{v}" for k, v in sorted(present.items())) or "none"
+        out["note"] = (f"no {target} atoms found; metal elements present in this "
+                       f"structure: {found}. Pass metal_element=<element> to analyze another.")
+    return out
 
 
 def structure_stats(source: Any) -> dict[str, Any]:

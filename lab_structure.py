@@ -103,6 +103,46 @@ def render() -> None:
     else:
         st.caption("No chain gaps — the chain is continuous.")
 
+    # ---------- B-factor / pLDDT profile ----------
+    try:
+        plddt = pdb_utils.plddt_summary(struct)
+        st.subheader("B-factor / pLDDT profile")
+        if "bands_pct" in plddt:
+            b = plddt["bands_pct"]
+            bands = st.columns(4)
+            for col, (label, key) in zip(bands, [
+                ("Very low (<50)", "very_low_lt50"),
+                ("Low (50–70)", "low_50_70"),
+                ("Confident (70–90)", "confident_70_90"),
+                ("Very high (≥90)", "very_high_gt90"),
+            ]):
+                col.metric(label, f"{b[key]:.1f}%")
+            st.write(f"**Mean pLDDT/B-factor:** `{plddt.get('mean_plddt', 'N/A')}`")
+
+            if plddt.get("is_alphafold_like"):
+                st.info("This looks like an **AlphaFold-predicted model** "
+                        "(pLDDT in 0–100 range). Treat the profile as "
+                        "confidence, not thermal motion.")
+            else:
+                st.info("These are **experimental B-factors** (crystallographic/EM). "
+                        "High B-factors = flexible / disordered regions, "
+                        "not confidence scores.")
+
+            # Per-residue B-factor bar chart
+            import math as _math
+            per_res = plddt.get("low_confidence_regions", [])
+            if per_res:
+                labels = [f"{ch}:{rs}" for ch, rs, _ in per_res]
+                values = [v for _, _, v in per_res]
+                st.bar_chart(dict(zip(labels, values)), horizontal=False)
+                st.caption(f"Low-confidence regions (<70 pLDDT): "
+                           f"{plddt.get('n_atoms_scored', '?')} residues scored, "
+                           f"{len(per_res)} flagged")
+            else:
+                st.caption("No low-confidence regions — all residues are confident.")
+    except Exception as exc:
+        st.caption(f"B-factor/pLDDT profile: skipped ({exc})")
+
     seqs = pdb_utils.sequences(struct)
     chains_seq = {k: d for k, d in seqs.items()
                   if not k.startswith("_")}
@@ -134,6 +174,54 @@ def render() -> None:
                  "(e.g. a pyramid of 4) usually means a real binding "
                  "site; a loose or lopsided one deserves a second look "
                  "before you trust it.")
+
+    # ---------- Export / download ----------
+    try:
+        import json
+        s = pdb_utils.structure_stats(struct)
+        payload = {
+            "source_file": name or "uploaded_file",
+            "n_atoms": s.get("n_atoms", 0),
+            "n_residues": s.get("n_residues", 0),
+            "n_chains": len(s.get("chains", {})),
+            "chains": s.get("chains", {}),
+            "n_alternate_locations": s.get("n_altlocs", 0),
+            "n_insertion_codes": s.get("n_insertion_codes", 0),
+            "format_errors": v.get("format_errors", []),
+            "unknown_residues": v.get("unknown_residues", []),
+            "chain_gaps": v.get("chain_gaps", []),
+            "metal_sites": _collect_metal_sites(struct),
+        }
+        json_str = json.dumps(payload, indent=2, default=str)
+        st.download_button("⬇ Download .json report",
+                           json_str,
+                           file_name="structure_report.json",
+                           mime="application/json")
+    except Exception as exc:
+        st.caption(f"Report export skipped ({exc})")
+
+
+def _collect_metal_sites(struct) -> list[dict]:
+    """Collect per-site metal data for the JSON export."""
+    out = []
+    try:
+        sites = pdb_utils.metal_geometry(struct)
+        for site in sites.get("metal_sites", []):
+            out.append({
+                "site": site.get("site"),
+                "coordination_number": site.get("coordination_number"),
+                "geometry": site.get("geometry_fit", {}).get("best"),
+                "rmsd_deg": site.get("geometry_fit", {}).get("rmsd_deg"),
+                "ligand_contacts": [{
+                    "residue": c.get("residue"),
+                    "atom": c.get("atom"),
+                    "distance_A": c.get("dist_A"),
+                    "type": c.get("type"),
+                } for c in site.get("ligand_contacts", [])],
+            })
+    except Exception:
+        pass
+    return out
 
 
 def _find_metals(struct) -> dict[str, list]:

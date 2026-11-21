@@ -93,6 +93,12 @@ def _check_premium_key(tool: str) -> str:
             f"PROTEIN_TOOLS_API_KEY environment variable (see server README "
             f"for how to get a key)."
         )
+    if key.lower() == "your-key-here":
+        raise PermissionError(
+            f"'{tool}' is a premium tool and requires a real API key. "
+            f"PROTEIN_TOOLS_API_KEY is still the setup placeholder "
+            f"('your-key-here') — get a key and set it, or use free tools only."
+        )
     return key
 
 
@@ -641,6 +647,21 @@ def read_fasta(source: str, is_file: bool = True, sequence_index: int = 0, norma
         return _error_response(exc)
 
 
+def _local_structure_candidates(pdb_id: str) -> list[Path]:
+    """Files that may hold structure `pdb_id`, in search order: every directory
+    in $PROTEIN_TOOLS_STRUCTURE_DIR (os.pathsep-separated), the current
+    directory, then the install directory (legacy source checkouts). Each
+    directory is tried with <ID> and <id> and the .pdb / .cif extensions.
+    `pdb_id` is already validated as 4 ASCII letters/digits, so it cannot
+    contain path separators."""
+    dirs = [Path(p).expanduser()
+            for p in os.environ.get("PROTEIN_TOOLS_STRUCTURE_DIR", "").split(os.pathsep)
+            if p.strip()]
+    dirs += [Path.cwd(), Path(__file__).resolve().parent]
+    names = [pdb_id] if pdb_id == pdb_id.lower() else [pdb_id, pdb_id.lower()]
+    return [d / f"{n}{ext}" for d in dirs for ext in (".pdb", ".cif") for n in names]
+
+
 @mcp.tool()
 def pdb_by_id(pdb_id: str, refresh: bool = False) -> str:
     """Get info about a PDB entry by its 4-character PDB ID.
@@ -651,14 +672,13 @@ def pdb_by_id(pdb_id: str, refresh: bool = False) -> str:
     """
     try:
         pdb_id = pdb_id.strip().upper()
-        if len(pdb_id) != 4 or not pdb_id.isalnum():
-            raise ValueError(f"pdb_id must be a 4-character alphanumeric ID, got '{pdb_id}'")
+        if not (len(pdb_id) == 4 and pdb_id.isascii() and pdb_id.isalnum()):
+            raise ValueError(f"pdb_id must be 4 ASCII letters/digits (e.g. 4HHB), got '{pdb_id}'")
 
-        base_dir = Path.cwd()
         local_info: dict = {"local_file": None, "present": False}
-        for ext in [".pdb", ".cif"]:
-            candidate = base_dir / f"{pdb_id}{ext}"
-            if candidate.exists():
+        for candidate in _local_structure_candidates(pdb_id):
+            ext = candidate.suffix
+            if candidate.is_file():
                 local_info = {
                     "local_file": str(candidate),
                     "present": True,
@@ -716,29 +736,27 @@ def find_pdb_by_sequence(source: str, is_file: bool = True, sequence_index: int 
 
         _check_premium_key("find_pdb_by_sequence")
 
-        search_url = "https://search.rcsb.org/rcsbsearch/v2/search"
-        seq_type_map = {"protein": ("protein", "blastp"),
-                        "dna": ("dna", "blastn"),
-                        "rna": ("rna", "blastn")}
-        seq_type, program = seq_type_map[rec["type"]["type"]]
+        search_url = "https://search.rcsb.org/rcsbsearch/v2/query"
+        seq_type_map = {"protein": "protein",
+                        "dna": "dna",
+                        "rna": "rna"}
+        seq_type = seq_type_map[rec["type"]["type"]]
         payload = {
+            "return_type": "entry",
+            "request_options": {
+                "paginate": {"start": 0, "rows": max_results},
+                "results_content_type": ["experimental"],
+                "sort": [{"sort_by": "score", "direction": "desc"}],
+                "scoring_strategy": "combined",
+            },
             "query": {
                 "type": "terminal",
                 "service": "sequence",
                 "parameters": {
                     "evalue_cutoff": 1e-3,
                     "sequence_type": seq_type,
-                    "target": "pdb",
-                    "program": program,
-                    "sequence": seq,
+                    "value": seq,
                 },
-            },
-            "request_options": {
-                "results_content_type": ["entry"],
-                "pagination": {"start": 0, "rows": max_results},
-            },
-            "result_options": {
-                "sort": [{"sort_by": "score", "direction": "desc"}],
             },
         }
 
@@ -752,10 +770,9 @@ def find_pdb_by_sequence(source: str, is_file: bool = True, sequence_index: int 
         with urllib.request.urlopen(req, timeout=60) as r:
             search_result = json.loads(r.read().decode())
 
-        groups = search_result.get("groups", [])
         entries = []
-        for group in groups[:max_results]:
-            entry_id = group.get("identifier")
+        for entry in search_result.get("result_set", [])[:max_results]:
+            entry_id = entry.get("identifier")
             if entry_id:
                 entries.append({"pdb_id": entry_id})
 
