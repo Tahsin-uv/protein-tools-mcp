@@ -40,6 +40,27 @@ def _demo_text() -> str:
 def render() -> None:
     import streamlit as st
 
+    # Theme selector (Streamlit built-in)
+    themes = ["light", "dark", "auto"]
+    theme = st.sidebar.radio("App theme", themes,
+                          index=["light", "dark", "auto"].index(st.get_option("theme.base")))
+    st.set_page_config(page_title="Protein Lab", page_icon="🧬", layout="wide",
+                      initial_sidebar_state="expanded")
+
+    # Session history: keep last 3 inputs
+    if "lab_seq_history" not in st.session_state:
+        st.session_state.lab_seq_history = []
+
+    st.sidebar.header("History")
+    if st.session_state.lab_seq_history:
+        for i, hist in enumerate(reversed(st.session_state.lab_seq_history[-3:])):
+            if st.sidebar.button(f"Recall #{len(st.session_state.lab_seq_history)-i}", key=f"recall_{i}"):
+                st.session_state._lab_seq = hist
+                st.rerun()
+    if st.sidebar.button("Clear history"):
+        st.session_state.lab_seq_history = []
+        st.rerun()
+
     st.header("What is my sequence?")
     st.write("Paste letters (like `MKLIVFWYHEPQDNRS`), a FASTA record "
              "(starting with `>`), or upload a `.fasta` file.")
@@ -52,11 +73,16 @@ def render() -> None:
     demo_clicked = st.button("Try demo data instead")
     if demo_clicked:
         st.session_state["_lab_seq"] = _demo_text()
+        st.session_state.lab_seq_history.append(st.session_state._lab_seq)
+        # Keep only last 10
+        st.session_state.lab_seq_history = st.session_state.lab_seq_history[-10:]
 
     up = st.file_uploader("...or upload a .fasta file",
                           type=["fasta", "fa", "txt"])
     if up is not None:
         st.session_state["_lab_seq"] = up.read().decode("utf-8", errors="replace")
+        st.session_state.lab_seq_history.append(st.session_state._lab_seq)
+        st.session_state.lab_seq_history = st.session_state.lab_seq_history[-10:]
 
     src = st.text_area("Sequence or FASTA", height=120,
                        placeholder=">my_protein\nMKLIVFWYHEPQDNRSACDE",
@@ -89,9 +115,51 @@ def render() -> None:
         st.caption("Check for stray spaces, numbers, or a missing `>` "
                    "header line in FASTA input.")
 
+    # Format guide: what to paste/upload
+    with st.expander("File format guide"):
+        st.markdown("""
+        **Accepted formats**:
+        - **FASTA**: Start with `>` followed by a header line, then the sequence on the next line(s).
+          Example: `>sp|P68871|HBA_HUMAN Hemoglobin subunit alpha OS=Homo sapiens OX=9606 GN=HBA1 PE=1 SV=1`
+        - **Plain text**: Just the letter code, e.g. `MKLIVFWYHEPQDNRSACDE`
+        - **PDB/mmCIF**: Upload `.pdb` or `.cif` files in the Structure tab.
+          Must have `ATOM` or `REMARK` records, and residue names must be standard 3-letter codes.
+
+        **Tips**:
+        - Remove any leading/trailing spaces or numbers before the header.
+        - FASTA headers with `|` or spaces are fine — only the first `>` matters.
+        - If your sequence looks like "amino a..." you likely have a truncation issue —
+          the app now shows "aa" instead of truncating.
+        - For PDB files: if you see "Format errors", check that the file has proper
+          `HEADER`, `TITLE`, `COMPND`, and `SOURCE` records for best results.
+        """)
+
     with st.expander("Glossary - what do these words mean?"):
         for term, meaning in _GLOSSARY.items():
             st.markdown(f"**{term}:** {meaning}")
+
+# New: Detailed help/tooltips for each metric
+with st.expander("Help & interpretation"):
+    st.markdown(f"""
+    **Length**: Number of amino acids in your protein.  
+    **Weight**: Molecular weight in Daltons.  ~110 Da per residue is the average.  
+    **Charge at pH 7**: Net charge the protein would have in a typical cellular environment (pH ~7.4).  
+    **GRAVY**: Grand Average of Hydropathy. Positive = water-hating (oily), negative = water-loving.  
+      Used to predict transmembrane regions — if strongly positive, the protein may embed in membranes.  
+    **pI (isoelectric point)**: The pH at which the protein has zero net charge.  
+      Below the pI the protein is positively charged; above it is negatively charged.  
+      Important for chromatographic purification — proteins precipitate near their pI.  
+    **ε₂₈₀**: Molar extinction coefficient at 280 nm. Determined by Trp (×5500), Tyr (×1490), and Cys (×125 if oxidized).  
+      Used to estimate protein concentration from A₂₈₀ measurements.  
+    **A₂₈₀ @ 0.1%**: Absorbance of a 1 mg/mL solution in a 1 cm cell.  
+      Rough check: if ε₂₈₀ is correct, A₂₈₀ ≈ 1.0 for 1 mg/mL proteins with typical Trp/Tyr content.  
+    **Amino acid types**: Hydrophobic (A,V,L,I,M,F,W), Polar (N,C,Q,Y,S,T), Acidic (D,E), Basic (K,R,H),  
+      Aromatic (F,W,Y), Special (C, glycine, proline). The chart shows your distribution.  
+    **Class fractions**: The dominant class tells you what your protein "likes" — e.g. hydrophobic proteins  
+      tend to stick to membranes, acidic proteins bind cations, basic proteins bind nucleic acids.  
+    **Charge direction**: If the protein is positively charged, it will tend to associate with  
+      negatively charged surfaces (like DNA or phospholipid heads); if negative, the opposite.
+    """)
 
 
 def _render_record(rec_id: str, seq: str, label: str) -> None:
@@ -149,4 +217,26 @@ def _render_record(rec_id: str, seq: str, label: str) -> None:
             f"It will tend to {direction}. "
             f"The chart shows how many of each of the 20 amino-acid "
             f"types appear.")
+
+    # NEW: Amino acid breakdown table with download
+    from collections import Counter
+    counts = Counter(seq)
+    total = len(seq)
+    sorted_aa = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+    aa_df = {
+        "Amino Acid": [a[0] for a in sorted_aa],
+        "Count": [a[1] for a in sorted_aa],
+        "Percentage": [f"{(a[1]/total*100):.1f}%" for a in sorted_aa]
+    }
+    st.dataframe(aa_df, hide_index=True, use_container_width=True)
+    csv_lines = "Amino Acid,Count,Percentage\n"
+    for aa, cnt in sorted_aa:
+        csv_lines += f"{aa},{cnt},{cnt/total*100:.1f}\n"
+    st.download_button(
+        "⬇ Download AA table as CSV",
+        csv_lines,
+        file_name="amino_acid_counts.csv",
+        mime="text/csv",
+        help="Download a CSV with amino acid counts and percentages"
+    )
 

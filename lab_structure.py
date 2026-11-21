@@ -37,6 +37,26 @@ def _demo(name: str) -> str:
 
 def render() -> None:
     import streamlit as st
+    FIX = os.path.dirname(os.path.abspath(__file__))
+
+    # NEW: Example/demo PDB files
+    demo_files = {
+        "Zinc protein (tiny)": "tiny_zn.pdb",
+        "Iron protein (small)": "A8ABE7_holo_Fe2.pdb",
+    }
+
+    st.sidebar.header("Structure demos")
+    demo_choice = st.sidebar.radio("Load demo structure", list(demo_files.keys()) + ["— — —"])
+    if demo_choice != "— — —":
+        demo_path = os.path.join(FIX, demo_files[demo_choice])
+        with open(demo_path, encoding="utf-8") as f:
+            demo_text = f.read()
+        st.session_state["_lab_struct"] = (demo_text, demo_path)
+        st.rerun()
+
+    # NEW: Error summary panel at top of Structure tab
+    st.caption("💡 Click row details for explanations. Issues are common and often fixable.")
+    st.divider()
 
     st.header("Is my structure healthy?")
     st.write("Upload a `.pdb` or `.cif` file — or explore the demo "
@@ -179,6 +199,8 @@ def render() -> None:
     try:
         import json
         s = pdb_utils.structure_stats(struct)
+        # NEW: Collect per-metal-site geometry for the report
+        metal_report = _collect_metal_sites(struct)
         payload = {
             "source_file": name or "uploaded_file",
             "n_atoms": s.get("n_atoms", 0),
@@ -190,7 +212,10 @@ def render() -> None:
             "format_errors": v.get("format_errors", []),
             "unknown_residues": v.get("unknown_residues", []),
             "chain_gaps": v.get("chain_gaps", []),
-            "metal_sites": _collect_metal_sites(struct),
+            "metal_sites": metal_report,
+            "seq_length": len(seqs.get("chain_1", {}).get("sequence", "")) if seqs else None,
+            "mean_plddt": plddt.get("mean_plddt") if "plddt" in plddt else None,
+            "is_alphafold_like": plddt.get("is_alphafold_like") if "plddt" in plddt else False,
         }
         json_str = json.dumps(payload, indent=2, default=str)
         st.download_button("⬇ Download .json report",
