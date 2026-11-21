@@ -212,13 +212,18 @@ def _render_record(rec_id: str, seq: str, label: str) -> None:
                      if (ch or 0) > 0 else
                      "stick to positively charged surfaces"
                      if (ch or 0) < 0 else "stay neutral in solution")
-        st.write(
-            f"Your protein is mostly **{top}** building blocks "
-            f"({c['length']} in total, weighing about "
-            f"{c['molecular_weight_da']:,.0f} Da). "
-            f"It will tend to {direction}. "
-            f"The chart shows how many of each of the 20 amino-acid "
-            f"types appear.")
+        # Determine hydrophobicity label from GRAVY
+    gravy_label = "hydrophilic" if gravy < 0 else "hydrophobic"
+
+    msg = (
+        "Your protein is mostly %s building blocks "
+        "(%d in total, weighing about %d Da). "
+        "It will tend to %s. "
+        "The GRAVY (%.2f) indicates %s character, "
+        "while the chart shows the amino-acid class distribution."
+        ) % (top, c['length'], c['molecular_weight_da'], direction, gravy, gravy_label)
+
+    st.write(msg)
 
     # NEW: Amino acid breakdown table with download
     from collections import Counter
