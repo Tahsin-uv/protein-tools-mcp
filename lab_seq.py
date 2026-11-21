@@ -88,8 +88,10 @@ def render() -> None:
                        placeholder=">my_protein\nMKLIVFWYHEPQDNRSACDE",
                        key="_lab_seq")
 
+    submitted = st.button("Analyze Sequence")
+
     src = st.session_state.get("_lab_seq", "")
-    if not src.strip():
+    if not src.strip() and not submitted:
         st.info("Paste a sequence, upload a file, or try the demo data.")
         return
 
